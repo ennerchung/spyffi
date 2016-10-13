@@ -2,7 +2,7 @@
 import argparse
 import sys
 
-from httm import raw_transform_from_file
+from httm import raw_transform_from_file, write_calibrated_fits
 
 if __name__ == "__main__":
 
@@ -15,4 +15,5 @@ if __name__ == "__main__":
     parser.add_argument('output', nargs='?', type=argparse.FileType('w'), default=sys.stdout,
                         help="The name of the Calibrated FITS file to use as output (defaults to STDOUT)")
 
-    print raw_transform_from_file(parser.parse_args().input)
+    args = parser.parse_args()
+    write_calibrated_fits(args.output, raw_transform_from_file(args.input))
