@@ -56,6 +56,7 @@ camerakw = dict(
     # what is the commanded central ra and dec of the field?
     ra  =   270.0,
     dec =    66.56070833333332,
+    roll=   0,
 
     # what is the angle of +y at field center? (measured from N, through E)
     positionangle = 0.0,

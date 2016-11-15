@@ -332,7 +332,9 @@ class CCD(object):
         # pull out positions, magnitudes, and temperatures at the time of the first exposure
         logger.info('taking an intial snapshot at {0} = {1}'.format(self.camera.bjd, self.epoch))
         ras, decs, tmag, temperatures = self.camera.catalog.snapshot(self.camera.bjd,
-                                                                     exptime=self.camera.cadence / 60.0 / 60.0 / 24.0)
+                                                                     exptime=self.camera.cadence / 60.0 / 60.0 / 24.0,
+                                                                     roll=self.camera.roll, ra_0=self.camera.ra,
+                                                                     dec_0=self.camera.dec)
         assert (ras.shape == tmag.shape)
 
         # assign the cartrographer's CCD to this one
@@ -388,7 +390,9 @@ class CCD(object):
         # pull out positions, magnitudes, and temperatures
         logger.info('taking a snapshot at {0} = {1}'.format(self.camera.bjd, self.epoch))
         ras, decs, tmag, temperatures = self.catalog.snapshot(self.camera.bjd,
-                                                              exptime=self.camera.cadence / 60.0 / 60.0 / 24.0)
+                                                              exptime=self.camera.cadence / 60.0 / 60.0 / 24.0,
+                                                              roll=self.camera.roll, ra_0=self.camera.ra,
+                                                              dec_0=self.camera.dec)
         logger.info('  done!')
         assert (ras.shape == tmag.shape)
         self.camera.cartographer.ccd = self
