@@ -120,7 +120,12 @@ class Catalog(object):
 
     def snapshot(self, bjd=None, epoch=None, exptime=0.5 / 24.0, roll=0, ra_0=0, dec_0=0):
         """return a snapshot of positions, magnitudes, and effective temperatures
-        (all of which may be time-varying)"""
+        (all of which may be time-varying). The possibility of a roll angle on the sky
+        projection is also included, where the roll transformation is carried out
+        on the baseline star field [positions given by (ra,dec)] counter-clockwise about
+        the FOV center [given by (ra_0,dec_0)]. If there is no roll, then the rotation is
+        not carried out and the (ra,dec) values from the catalog are returned at the
+        given epoch."""
 
         # propagate proper motions
         if bjd is not None:
@@ -129,22 +134,32 @@ class Catalog(object):
             bjd = (epoch - 2000.0) * 365.25 + 2451544.5
 
         ra, dec = self.atEpoch(epoch)
-
-        # Carry out the rotation based on roll input angle
-        ra_c = ra - ra_0                                  # Center the star RA values on the field of view
-        dec_c = dec - dec_0                               # Center the star dec values on the field of view
-        ras_rot = np.zeros(np.size(ra))                   # Create empty array for the rotated RA values
-        dec_rot = np.zeros(np.size(dec))                  # Create empty array for the rotated dec values
-        rot_ang = roll*np.pi/180                          # Convert rotation angle to radians
-        rot_mat = np.array([[np.cos(rot_ang), -np.sin(rot_ang)],  # Construct the rotation matrix
-                            [np.sin(rot_ang), np.cos(rot_ang)]])
-        for pp in range(0, np.size(ra)):                  # For all the centered RA and dec values
-            rot_vec = np.dot(rot_mat, np.array([[ra_c[pp]], [dec_c[pp]]]))  # Apply the rotation matrix
-            rot_vec = rot_vec + np.array([[ra_0], [dec_0]])                 # Add back the FOV zero point
-            ras_rot[pp] = rot_vec[0]                                        # Assign the first vector value to RA
-            dec_rot[pp] = rot_vec[1]                                        # Assign the second vector value to dec
-        ra = ras_rot    # Set the output RA values to the rotated ones
-        dec = dec_rot   # Set the output dec values to the rotated ones
+        # Carry out the rotation based on roll input angle if roll angle is nonzero
+        if roll != 0.0:
+            ras_rot = np.zeros(np.size(ra))                   # Create empty array for the rotated RA values
+            dec_rot = np.zeros(np.size(dec))                  # Create empty array for the rotated dec values
+            rot_ang = roll*np.pi/180                          # Convert rotation angle to radians
+            rot_mat = np.array([[np.cos(rot_ang), -np.sin(rot_ang)],  # Construct the rotation matrix
+                                [np.sin(rot_ang), np.cos(rot_ang)]])
+            for pp in range(0, np.size(ra)):                  # For all RA and dec values
+                ra_here = ra[pp]
+                dec_here= dec[pp]
+                if ra_here >= 180:                            # Based on the VizieR output, wrap the angle at 180 deg.
+                    ra_here = ra_here - 360
+                if dec_here >= 180:                           # Based on the VizieR output, wrap the angle at 180 deg.
+                    dec_here = dec_here - 360
+                ra_c = ra_here - ra_0                         # Center the star RA values on the field of view
+                dec_c = dec_here - dec_0                      # Center the star dec values on the field of view
+                rot_vec = np.dot(rot_mat, np.array([[ra_c], [dec_c]]))   # Apply the rotation matrix
+                rot_vec = rot_vec + np.array([[ra_0], [dec_0]])          # Add back the FOV zero point
+                ras_rot[pp] = rot_vec[0]                                 # Assign the first vector value to RA
+                dec_rot[pp] = rot_vec[1]                                 # Assign the second vector value to dec
+                if ras_rot[pp] < 0:                                      # Unwrap the angle to give a value in [0,360)
+                    ras_rot[pp] = ras_rot[pp] + 360                      #      for use in sky-to-pixel coordinate
+                if dec_rot[pp] < 0:                                      #      transformation.
+                    dec_rot[pp] = dec_rot[pp] + 360                      # Unwrap the angle to give a value in [0,360)
+            ra = ras_rot                                                 # Set the output RA values to the rotated ones
+            dec = dec_rot                                                # Set the output dec values to the rotated ones
 
         # determine brightness of star
         moment = np.array([lc.integrated(bjd, exptime) for lc in self.lightcurves]).flatten()
