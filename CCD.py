@@ -183,6 +183,7 @@ class CCD(object):
         self.camera.bjdantisun = self.camera.bjd0 + 13.7
         self.header['BJD0'] = self.camera.bjd0, '[day] base time subtracted from all BJD'
         self.header['BJD'] = self.camera.bjd - self.camera.bjd0, '[day] mid-exposure time - BJD0'
+        self.header['BJD_TDB'] = self.camera.bjd, '[day] BJD_TDB'
         self.header['ANTISUN'] = self.camera.bjdantisun - self.camera.bjd0, '[day] time of antisun - BJD0'
         self.epoch = (self.camera.bjd - 2451544.5) / 365.25 + 2000.0
         self.header['EPOCH'] = self.epoch, '[years] epoch of mid-exposure time'
