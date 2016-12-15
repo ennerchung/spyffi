@@ -21,6 +21,7 @@ from settings import log_file_handler
 logger = logging.getLogger(__name__)
 logger.addHandler(log_file_handler)
 
+import db_management as dbm
 
 def makeCatalog(**kwargs):
     """use keywords to select a kind of Catalog,
@@ -420,6 +421,131 @@ class UCAC4(Catalog):
         self.tmag = imag[ok]
         self.temperature = temperatures[ok]
         self.epoch = 2000.0
+
+
+class TIC(Catalog):
+
+    def __init__(self, ra=300.0, dec=50.0,
+                 radius=0.2,
+                 write=True,
+                 fast=False,
+                 lckw=None, starsarevariable=True, faintlimit=None, **kwargs):
+
+        # initialize this catalog
+        Catalog.__init__(self)
+        if fast:
+            radius *= 0.1
+        self.load(ra=ra, dec=dec, radius=radius, write=write, faintlimit=faintlimit)
+
+        if starsarevariable:
+            self.addLCs(**lckw)
+        else:
+            self.addLCs(fractionofstarswithlc=0.0)
+
+    def load(self, ra=300.0, dec=50.0, radius=0.2, write=True, faintlimit=None):
+
+        # select the columns that are not in TIC
+        catalog  = 'TIC2'
+        startag  = "ID"
+        ratag    = 'RA'
+        dectag   = 'DEC'
+        pmratag  = 'PMRA'
+        pmdectag = 'PMDEC'
+        tmagtag  = "TMAG"
+        temptag  = "TEFF"
+        typetag  = "OBJTYPE"
+
+        ROW_LIMIT = -1
+
+        columns = [ratag,dectag,pmratag,pmdectag,tmagtag,temptag,typetag]
+
+        # either reload an existing catalog file or download to create a new one
+        starsfilename = settings.intermediates + self.directory
+        starsfilename +=  "{catalog}ra{ra:.4f}dec{dec:.4f}rad{radius:.4f}".format(
+                                                catalog=catalog,
+                                                ra=ra,
+                                                dec=dec,
+                                                radius=radius) + '.npy'
+
+        try:
+            # try to load a raw catalog file
+            self.speak("loading a catalog of stars from {0}".format(starsfilename))
+            t = np.load(starsfilename)
+        except IOError:
+            self.speak('could not load stars')
+            # otherwise, make a new query
+            self.speak("querying {catalog} "
+                      "for ra = {ra}, dec = {dec}, radius = {radius}".format(
+                                  catalog=catalog, ra=ra, dec=dec, radius=radius))
+            # load via astroquery
+            #*****
+            t = self.query(ra,dec,radius,columns,ROW_LIMIT)
+
+            # save the queried table
+            np.save(starsfilename, t)
+
+
+        # define the table
+        self.table = astropy.table.Table(t)
+
+
+        ras = np.array(t[:][ratag])
+        decs = np.array(t[:][dectag])
+        pmra = np.array(t[:][pmratag])
+        pmdec = np.array(t[:][pmdectag])
+        tmag = np.array(t[:][tmagtag])
+        TEFF = np.array(t[:][temptag])
+        Type = np.array(t[:][typetag])
+
+
+
+        pmra[np.isfinite(pmra) == False] = 0.0
+        pmdec[np.isfinite(pmdec) == False] = 0.0
+
+        ok = np.isfinite(tmag)
+        if faintlimit is not None:
+            ok *= tmag <= faintlimit
+
+        self.speak("found {0} stars with {1} < Tmag < {2}".format(np.sum(ok), np.min(tmag[ok]), np.max(tmag[ok])))
+        self.ra = ras[ok]
+        self.dec = decs[ok]
+        self.pmra = pmra[ok]
+        self.pmdec = pmdec[ok]
+        self.tmag = tmag[ok]
+        self.temperature = TEFF[ok]
+        self.epoch = 2000.0
+
+    def query(self,ra,dec,radius,column,ROW_LIMIT):
+
+        # a more robust tic db storage method?
+        TIC_Path = settings.inputs+"TIC_db.db"
+        table_name = "Data"
+        c,conn = dbm.access_db(TIC_Path)
+
+
+        #figure out how to query by radius and box.
+
+        # sqlite radius requires sqlite3_create_function. Will look into that.
+        # but now seems ok
+        # Query by box size
+
+        condition = (ra+radius, ra-radius, dec+radius, dec-radius)
+        cmd = """SELECT RA,DEC,PMRA,PMDEC,TMAG,TEFF,OBJTYPE
+                 FROM Data
+                 WHERE RA < ? AND RA > ? AND DEC < ? AND DEC > ?
+                 """
+
+        c.execute(cmd,condition)
+        result = c.fetchall()
+
+        if ROW_LIMIT == None or ROW_LIMIT == -1:
+            pass
+        else:
+            result = result[:ROW_LIMIT]
+
+        return np.array(result, dtype=[(column[0], float), (column[1], float), (column[2], float),
+                                           (column[3], float), (column[4], float), (column[5], float),
+                                           (column[6], '|S16')])
 
 
 class Trimmed(Catalog):

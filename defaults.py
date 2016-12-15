@@ -106,6 +106,10 @@ catalogkw = dict(
     #   options are ['sky', testpattern']
     name = 'sky',
 
+    # Which catalog to chose the star from
+    # options are ['TIC', 'UCAC4']
+    catalogue = "UCAC4",
+
     # should we populate stars with light curves?
     starsarevariable = True,
 
