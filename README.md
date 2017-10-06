@@ -4,7 +4,8 @@ SPyFFI
 [![Build Status](https://travis-ci.org/TESScience/SPyFFI.svg?branch=master)](https://travis-ci.org/TESScience/SPyFFI)
 
 The *Spiffy Python for Full Frame Images* package is a collection of
-tools for simulating TESS images.
+tools for simulating TESS images. Please note, this is *not* the official
+TESS Simulated Image Generator now being developed at MIT.
 
 ### Testing
 
