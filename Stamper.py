@@ -64,7 +64,9 @@ class Stamper(object):
         np.random.seed(self.ccd.number)
 
         ras, decs, tmag, temperatures = self.camera.catalog.snapshot(self.camera.bjd,
-                                                                     exptime=self.camera.cadence / 60.0 / 60.0 / 24.0)
+                                                                     exptime=self.camera.cadence / 60.0 / 60.0 / 24.0,
+                                                                     roll=self.ccd.camera.roll, ra_0=self.ccd.camera.ra,
+                                                                     dec_0=self.ccd.camera.dec)
 
         # assign the cartrographer's CCD to this one
         self.camera.cartographer.ccd = self.ccd
@@ -123,7 +125,9 @@ class Stamper(object):
 
         # assuming stars don't move in and out of postage stamps over time
         ras, decs, tmag, temperatures = self.camera.catalog.snapshot(self.camera.bjd,
-                                                                     exptime=self.camera.cadence / 60.0 / 60.0 / 24.0)
+                                                                     exptime=self.camera.cadence / 60.0 / 60.0 / 24.0,
+                                                                     roll=self.ccd.camera.roll, ra_0=self.ccd.camera.ra,
+                                                                     dec_0=self.ccd.camera.dec)
 
         # assign the cartrographer's CCD to this one
         self.camera.cartographer.ccd = self.ccd

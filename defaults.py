@@ -56,6 +56,7 @@ camerakw = dict(
     # what is the commanded central ra and dec of the field?
     ra  =   270.0,
     dec =    66.56070833333332,
+    roll=   0,
 
     # what is the angle of +y at field center? (measured from N, through E)
     positionangle = 0.0,
@@ -104,6 +105,10 @@ catalogkw = dict(
     # what type of a catalog is this?
     #   options are ['sky', testpattern']
     name = 'sky',
+
+    # Which catalog to chose the star from
+    # options are ['TIC', 'UCAC4']
+    catalogue = "UCAC4",
 
     # should we populate stars with light curves?
     starsarevariable = True,

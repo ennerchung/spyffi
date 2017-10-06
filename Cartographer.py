@@ -262,7 +262,7 @@ class celestial(position):
 
     @property
     def galactic(self):
-        gal = astropy.coordinates.ICRS(ra=self.ra, dec=self.dec, unit=(astropy.units.deg, astropy.units.deg)).galactic
+        gal = astropy.coordinates.SkyCoord(ra=self.ra*astropy.units.deg, dec=self.dec*astropy.units.deg, frame='icrs').galactic
         l, b = gal.l.degree, gal.b.degree
         return galactic(l, b, self.cartographer)
 

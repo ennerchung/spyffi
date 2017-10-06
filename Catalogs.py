@@ -7,6 +7,7 @@ from astroquery.vizier import Vizier
 import zachopy.star
 import astropy.coordinates
 import astropy.units
+from astropy.coordinates import Angle
 import zachopy.utils
 import numpy as np
 
@@ -20,6 +21,7 @@ from settings import log_file_handler
 logger = logging.getLogger(__name__)
 logger.addHandler(log_file_handler)
 
+import db_management as dbm
 
 def makeCatalog(**kwargs):
     """use keywords to select a kind of Catalog,
@@ -51,8 +53,7 @@ class Star(object):
         """initialize a star, with a coordinate, magnitude, (and more?)"""
 
         # the coordinate object stores the ICRS
-        self.coord = astropy.coordinates.ICRS(ra=ra, dec=dec,
-                                              unit=(astropy.units.deg, astropy.units.deg))
+        self.coord = astropy.coordinates.SkyCoord(ra=ra*astropy.units.deg, dec=dec*astropy.units.deg,  frame='icrs')
         self.ra = ra
         self.dec = dec
         self.tmag = tmag
@@ -105,7 +106,7 @@ class Catalog(object):
                 fractionofstarswithlc * 100))
 
         # use the input seed, to ensure it wor
-        for i in np.random.choice(brightenough, len(brightenough) * fractionofstarswithlc, replace=False):
+        for i in np.random.choice(brightenough, np.int(len(brightenough) * fractionofstarswithlc), replace=False):
             self.lightcurves[i] = Lightcurve.random(**kw)
 
     @property
@@ -117,9 +118,14 @@ class Catalog(object):
         """return (static) arrays of positions, magnitudes, and effective temperatures"""
         return self.ra, self.dec, self.tmag, self.temperature
 
-    def snapshot(self, bjd=None, epoch=None, exptime=0.5 / 24.0):
+    def snapshot(self, bjd=None, epoch=None, exptime=0.5 / 24.0, roll=0, ra_0=0, dec_0=0):
         """return a snapshot of positions, magnitudes, and effective temperatures
-        (all of which may be time-varying)"""
+        (all of which may be time-varying). The possibility of a roll angle on the sky
+        projection is also included, where the roll transformation is carried out
+        on the baseline star field [positions given by (ra,dec)] counter-clockwise about
+        the FOV center [given by (ra_0,dec_0)]. If there is no roll, then the rotation is
+        not carried out and the (ra,dec) values from the catalog are returned at the
+        given epoch."""
 
         # propagate proper motions
         if bjd is not None:
@@ -128,6 +134,32 @@ class Catalog(object):
             bjd = (epoch - 2000.0) * 365.25 + 2451544.5
 
         ra, dec = self.atEpoch(epoch)
+        # Carry out the rotation based on roll input angle if roll angle is nonzero
+        if roll != 0.0:
+            ras_rot = np.zeros(np.size(ra))                   # Create empty array for the rotated RA values
+            dec_rot = np.zeros(np.size(dec))                  # Create empty array for the rotated dec values
+            rot_ang = roll*np.pi/180                          # Convert rotation angle to radians
+            rot_mat = np.array([[np.cos(rot_ang), -np.sin(rot_ang)],  # Construct the rotation matrix
+                                [np.sin(rot_ang), np.cos(rot_ang)]])
+            for pp in range(0, np.size(ra)):                  # For all RA and dec values
+                ra_here = ra[pp]
+                dec_here= dec[pp]
+                if ra_here >= 180:                            # Based on the VizieR output, wrap the angle at 180 deg.
+                    ra_here = ra_here - 360
+                if dec_here >= 180:                           # Based on the VizieR output, wrap the angle at 180 deg.
+                    dec_here = dec_here - 360
+                ra_c = ra_here - ra_0                         # Center the star RA values on the field of view
+                dec_c = dec_here - dec_0                      # Center the star dec values on the field of view
+                rot_vec = np.dot(rot_mat, np.array([[ra_c], [dec_c]]))   # Apply the rotation matrix
+                rot_vec = rot_vec + np.array([[ra_0], [dec_0]])          # Add back the FOV zero point
+                ras_rot[pp] = rot_vec[0]                                 # Assign the first vector value to RA
+                dec_rot[pp] = rot_vec[1]                                 # Assign the second vector value to dec
+                if ras_rot[pp] < 0:                                      # Unwrap the angle to give a value in [0,360)
+                    ras_rot[pp] = ras_rot[pp] + 360                      #      for use in sky-to-pixel coordinate
+                if dec_rot[pp] < 0:                                      #      transformation.
+                    dec_rot[pp] = dec_rot[pp] + 360                      # Unwrap the angle to give a value in [0,360)
+            ra = ras_rot                                                 # Set the output RA values to the rotated ones
+            dec = dec_rot                                                # Set the output dec values to the rotated ones
 
         # determine brightness of star
         moment = np.array([lc.integrated(bjd, exptime) for lc in self.lightcurves]).flatten()
@@ -162,7 +194,7 @@ class Catalog(object):
             self.ax.cla()
         except:
             self.ax = plt.subplot()
-        ra, dec, tmag, temperature = self.snapshot(epoch=epoch)
+        ra, dec, tmag, temperature = self.snapshot(epoch=epoch, roll=ccd.camera.roll, ra_0=ccd.camera.ra, dec_0=ccd.camera.dec)
         deltamag = 20.0 - tmag
         size = deltamag ** 2 * 5
         try:
@@ -197,7 +229,8 @@ class Catalog(object):
         # take a snapshot projection of the catalog
         ccd.camera.cartographer.ccd = ccd
         ras, decs, tmag, temperatures = self.snapshot(ccd.camera.bjd,
-                                                      exptime=ccd.camera.cadence / 60.0 / 60.0 / 24.0)
+                                                      exptime=ccd.camera.cadence / 60.0 / 60.0 / 24.0,
+                                                      roll=ccd.camera.roll, ra_0=ccd.camera.ra, dec_0=ccd.camera.dec)
 
         # calculate the CCD coordinates of these stars
         stars = ccd.camera.cartographer.point(ras, decs, 'celestial')
@@ -314,7 +347,7 @@ class UCAC4(Catalog):
             columns = ['_RAJ2000', '_DECJ2000', 'pmRA', 'pmDE', 'f.mag', 'Jmag', 'Vmag', 'UCAC4']
 
         # create a query through Vizier
-        v = Vizier(catalog=vcat, columns=columns)
+        v = Vizier(catalog=catalog, columns=columns)
         v.ROW_LIMIT = -1
 
         # either reload an existing catalog file or download to create a new one
@@ -334,11 +367,10 @@ class UCAC4(Catalog):
             # otherwise, make a new query
             logger.info("querying {catalog} "
                         "for ra = {ra}, dec = {dec}, radius = {radius}".format(
-                catalog=catalog, ra=ra, dec=dec, radius=radius))
+                            catalog=catalog, ra=ra, dec=dec, radius=radius))
             # load via astroquery
-            t = v.query_region(astropy.coordinates.ICRS(ra=ra, dec=dec,
-                                                        unit=(astropy.units.deg, astropy.units.deg)),
-                               radius='{:f}d'.format(radius), verbose=True)[0]
+            coord = astropy.coordinates.SkyCoord(ra*astropy.units.deg, dec*astropy.units.deg, frame='icrs')
+            t = v.query_region(coord, radius*astropy.units.deg, catalog=catalog)[0]
 
             # save the queried table
             np.save(starsfilename, t)
@@ -387,6 +419,131 @@ class UCAC4(Catalog):
         self.tmag = imag[ok]
         self.temperature = temperatures[ok]
         self.epoch = 2000.0
+
+
+class TIC(Catalog):
+
+    def __init__(self, ra=300.0, dec=50.0,
+                 radius=0.2,
+                 write=True,
+                 fast=False,
+                 lckw=None, starsarevariable=True, faintlimit=None, **kwargs):
+
+        # initialize this catalog
+        Catalog.__init__(self)
+        if fast:
+            radius *= 0.1
+        self.load(ra=ra, dec=dec, radius=radius, write=write, faintlimit=faintlimit)
+
+        if starsarevariable:
+            self.addLCs(**lckw)
+        else:
+            self.addLCs(fractionofstarswithlc=0.0)
+
+    def load(self, ra=300.0, dec=50.0, radius=0.2, write=True, faintlimit=None):
+
+        # select the columns that are not in TIC
+        catalog  = 'TIC2'
+        startag  = "ID"
+        ratag    = 'RA'
+        dectag   = 'DEC'
+        pmratag  = 'PMRA'
+        pmdectag = 'PMDEC'
+        tmagtag  = "TMAG"
+        temptag  = "TEFF"
+        typetag  = "OBJTYPE"
+
+        ROW_LIMIT = -1
+
+        columns = [ratag,dectag,pmratag,pmdectag,tmagtag,temptag,typetag]
+
+        # either reload an existing catalog file or download to create a new one
+        starsfilename = settings.intermediates + self.directory
+        starsfilename +=  "{catalog}ra{ra:.4f}dec{dec:.4f}rad{radius:.4f}".format(
+                                                catalog=catalog,
+                                                ra=ra,
+                                                dec=dec,
+                                                radius=radius) + '.npy'
+
+        try:
+            # try to load a raw catalog file
+            self.speak("loading a catalog of stars from {0}".format(starsfilename))
+            t = np.load(starsfilename)
+        except IOError:
+            self.speak('could not load stars')
+            # otherwise, make a new query
+            self.speak("querying {catalog} "
+                      "for ra = {ra}, dec = {dec}, radius = {radius}".format(
+                                  catalog=catalog, ra=ra, dec=dec, radius=radius))
+            # load via astroquery
+            #*****
+            t = self.query(ra,dec,radius,columns,ROW_LIMIT)
+
+            # save the queried table
+            np.save(starsfilename, t)
+
+
+        # define the table
+        self.table = astropy.table.Table(t)
+
+
+        ras = np.array(t[:][ratag])
+        decs = np.array(t[:][dectag])
+        pmra = np.array(t[:][pmratag])
+        pmdec = np.array(t[:][pmdectag])
+        tmag = np.array(t[:][tmagtag])
+        TEFF = np.array(t[:][temptag])
+        Type = np.array(t[:][typetag])
+
+
+
+        pmra[np.isfinite(pmra) == False] = 0.0
+        pmdec[np.isfinite(pmdec) == False] = 0.0
+
+        ok = np.isfinite(tmag)
+        if faintlimit is not None:
+            ok *= tmag <= faintlimit
+
+        self.speak("found {0} stars with {1} < Tmag < {2}".format(np.sum(ok), np.min(tmag[ok]), np.max(tmag[ok])))
+        self.ra = ras[ok]
+        self.dec = decs[ok]
+        self.pmra = pmra[ok]
+        self.pmdec = pmdec[ok]
+        self.tmag = tmag[ok]
+        self.temperature = TEFF[ok]
+        self.epoch = 2000.0
+
+    def query(self,ra,dec,radius,column,ROW_LIMIT):
+
+        # a more robust tic db storage method?
+        TIC_Path = settings.inputs+"TIC_db.db"
+        table_name = "Data"
+        c,conn = dbm.access_db(TIC_Path)
+
+
+        #figure out how to query by radius and box.
+
+        # sqlite radius requires sqlite3_create_function. Will look into that.
+        # but now seems ok
+        # Query by box size
+
+        condition = (ra+radius, ra-radius, dec+radius, dec-radius)
+        cmd = """SELECT RA,DEC,PMRA,PMDEC,TMAG,TEFF,OBJTYPE
+                 FROM Data
+                 WHERE RA < ? AND RA > ? AND DEC < ? AND DEC > ?
+                 """
+
+        c.execute(cmd,condition)
+        result = c.fetchall()
+
+        if ROW_LIMIT == None or ROW_LIMIT == -1:
+            pass
+        else:
+            result = result[:ROW_LIMIT]
+
+        return np.array(result, dtype=[(column[0], float), (column[1], float), (column[2], float),
+                                           (column[3], float), (column[4], float), (column[5], float),
+                                           (column[6], '|S16')])
 
 
 class Trimmed(Catalog):

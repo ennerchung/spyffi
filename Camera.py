@@ -25,14 +25,14 @@ class Camera(object):
 
     def __init__(self,
                  cadence=1800,  # what cadence for exposures?
-                 ra=270, dec=66.56070833333332,  # field center,
+                 ra=270, dec=66.56070833333332, roll=0,  # field center and rotation,
                  testpattern=False,  # is this using a test pattern?
                  subarray=None,  # define a subarray at field center?
                  label='',  # a special label for this field?
                  cameranumber=1,  # which camera is this? (not used yet)
                  warpspaceandtime=False,  # slow the speed of light?
                  counterstep=1,  # jump by multiple exposures each time?
-                 aberrate=True,  # apply velocity aberration?
+                 aberrate=False,  # apply velocity aberration?
                  positionangle=None,  # position angle of the field
                  stamps={2: None, 120: None, 1800: None},  # how many postage stamps?
                  variablefocus=False,
@@ -89,6 +89,7 @@ class Camera(object):
         # if real stars, use the input (ra, dec)
         self.ra = ra
         self.dec = dec
+        self.roll = roll
         logger.info('the camera FOV is centered at (ra,dec) = {:.2f}, {:.2f} deg.'.format(
             self.ra, self.dec))
 
@@ -273,7 +274,7 @@ class Camera(object):
             except:
                 return 'testpattern'
         else:
-            coords = astropy.coordinates.ICRS(ra=self.ra * astropy.units.degree, dec=self.dec * astropy.units.degree)
+            coords = astropy.coordinates.SkyCoord(ra=self.ra * astropy.units.degree, dec=self.dec * astropy.units.degree, frame='icrs')
             return "{0:02}h{1:02}m{2:02}s{3:+03}d{4:02}m{5:02}s".format(np.int(coords.ra.hms[0]),
                                                                         np.int(coords.ra.hms[1]),
                                                                         np.int(coords.ra.hms[2].round()),
