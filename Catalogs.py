@@ -53,8 +53,7 @@ class Star(object):
         """initialize a star, with a coordinate, magnitude, (and more?)"""
 
         # the coordinate object stores the ICRS
-        self.coord = astropy.coordinates.ICRS(ra=ra, dec=dec,
-                                              unit=(astropy.units.deg, astropy.units.deg))
+        self.coord = astropy.coordinates.SkyCoord(ra=ra*astropy.units.deg, dec=dec*astropy.units.deg,  frame='icrs')
         self.ra = ra
         self.dec = dec
         self.tmag = tmag
@@ -107,7 +106,7 @@ class Catalog(object):
                 fractionofstarswithlc * 100))
 
         # use the input seed, to ensure it wor
-        for i in np.random.choice(brightenough, len(brightenough) * fractionofstarswithlc, replace=False):
+        for i in np.random.choice(brightenough, np.int(len(brightenough) * fractionofstarswithlc), replace=False):
             self.lightcurves[i] = Lightcurve.random(**kw)
 
     @property
@@ -348,7 +347,7 @@ class UCAC4(Catalog):
             columns = ['_RAJ2000', '_DECJ2000', 'pmRA', 'pmDE', 'f.mag', 'Jmag', 'Vmag', 'UCAC4']
 
         # create a query through Vizier
-        v = Vizier(catalog=vcat, columns=columns)
+        v = Vizier(catalog=catalog, columns=columns)
         v.ROW_LIMIT = -1
 
         # either reload an existing catalog file or download to create a new one
@@ -368,11 +367,10 @@ class UCAC4(Catalog):
             # otherwise, make a new query
             logger.info("querying {catalog} "
                         "for ra = {ra}, dec = {dec}, radius = {radius}".format(
-                catalog=catalog, ra=ra, dec=dec, radius=radius))
+                            catalog=catalog, ra=ra, dec=dec, radius=radius))
             # load via astroquery
-            t = v.query_region(astropy.coordinates.ICRS(ra=ra, dec=dec,
-                                                        unit=(astropy.units.deg, astropy.units.deg)),
-                               radius='{:f}d'.format(radius), verbose=True)[0]
+            coord = astropy.coordinates.SkyCoord(ra*astropy.units.deg, dec*astropy.units.deg, frame='icrs')
+            t = v.query_region(coord, radius*astropy.units.deg, catalog=catalog)[0]
 
             # save the queried table
             np.save(starsfilename, t)

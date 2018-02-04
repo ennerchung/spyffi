@@ -274,7 +274,7 @@ class Camera(object):
             except:
                 return 'testpattern'
         else:
-            coords = astropy.coordinates.ICRS(ra=self.ra * astropy.units.degree, dec=self.dec * astropy.units.degree)
+            coords = astropy.coordinates.SkyCoord(ra=self.ra * astropy.units.degree, dec=self.dec * astropy.units.degree, frame='icrs')
             return "{0:02}h{1:02}m{2:02}s{3:+03}d{4:02}m{5:02}s".format(np.int(coords.ra.hms[0]),
                                                                         np.int(coords.ra.hms[1]),
                                                                         np.int(coords.ra.hms[2].round()),
