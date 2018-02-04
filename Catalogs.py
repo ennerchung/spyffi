@@ -248,7 +248,7 @@ class Catalog(object):
             names = ['ra', 'dec', 'pmracosdec_mas', 'pmdec_mas', 'x', 'y', 'tmag', 'lc']
 
         t = astropy.table.Table(data=data, names=names)
-        t.write(outfile, format='ascii.fixed_width', delimiter=' ')
+        t.write(outfile, format='ascii.fixed_width', delimiter=' ', overwrite=True)
         logger.info("save projected star catalog {0}".format(outfile))
 
 
