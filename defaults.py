@@ -86,7 +86,7 @@ camerakw = dict(
     #   if an integer, then create a randomize catalog of postage stamps
     #   if a string, then interpret as a filename containing RA and Dec positions (absolute path!)
     stamps = {2:None, 20:None, 120:None, 1800:None},
-    
+
     # (ultimately, this should be fleshed out into Stamper object, with options)
 
     # include the PSF keywords here, so they can be passed to PSF
@@ -219,3 +219,36 @@ inputs = dict(
                 jitter=jitterkw,
                 expose=exposekw
 )
+
+
+
+
+
+
+
+
+
+import copy
+subarray = copy.copy(inputs)
+
+# give a label to this observation (that goes into the directory name)
+subarray['camera']['label'] = 'subarray'
+# how big of a subarray in pixels (centered on the FOV); None will give four normal CCDs
+subarray['camera']['subarray'] = 200
+# should we change the focus throughout the orbit?
+subarray['camera']['variablefocus'] = False
+
+# should we skip injecting cosmic rays? (False = *do* inject cosmics)
+subarray['expose']['skipcosmics'] = False
+# let's write the cosmic ray images out as separate files
+subarray['expose']['writecosmics'] = True
+
+# what's the catalog ("testpattern" or "UCAC4")
+subarray['catalog']['name'] = 'testpattern'
+# should we randomize the magnitudes of the stars
+subarray['catalog']['testpatternkw']['randomizemagnitudes'] = True
+# what range of magnitudes should the stars span?
+subarray['catalog']['testpatternkw']['magnitudes'] = [6,16]
+
+# how many of each exposure duration should we make?
+subarray['observation']['cadencestodo'] = {2:100}

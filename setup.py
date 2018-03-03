@@ -34,7 +34,7 @@ setup(
     license='MIT',
     url='https://github.com/TESScience/SPyFFI',
     setup_requires=['numpy'],
-    install_requires=['zachopy', 'matplotlib', 'numpy', 'astropy==1.1.2', 'astroquery', 'sh'],
+    install_requires=['zachopy', 'matplotlib', 'numpy', 'astropy', 'astroquery', 'sh'],
     cmdclass={'build_ext':numpy_build_options},
     ext_modules=[Extension("SPyFFI.cosmical_realistic._cosmical",
                            ["cosmical_realistic/_cosmical.c",
