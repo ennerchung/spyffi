@@ -39,7 +39,7 @@ def makeCartoon(seed=1):
         d[k] = v / np.std(v) * rmsat2s1d
 
     table = astropy.table.Table(d, names=['t', 'x', 'y'])
-    table.write(os.path.join(settings.inputs, 'cartoon.jitter'), format='ascii.fixed_width', bookend=False)
+    table.write(os.path.join(settings.inputs, 'cartoon.jitter'), format='ascii.fixed_width', bookend=False, overwrite=True)
 
 
 class Jitter(object):
@@ -283,7 +283,7 @@ class Jitter(object):
 
         t = astropy.table.Table(data=data, names=names)
         t.write(outfile.replace('.txt', '_amplifiedby{}.txt'.format(self.amplifyinterexposurejitter)),
-                format='ascii.fixed_width', delimiter=' ')
+                format='ascii.fixed_width', delimiter=' ', overwrite=True)
         logger.info("save jitter nudge timeseries to {0}".format(outfile))
 
     def applyNudge(self,

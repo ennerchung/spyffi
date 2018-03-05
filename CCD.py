@@ -261,10 +261,7 @@ class CCD(object):
         self.header['CRPIX1'] = x + 0.5
         self.header['CRPIX2'] = y + 0.5
 
-        # write the file to FITS
-        # astropy.io.fits.PrimaryHDU(np.transpose(savetype(image)), header=self.header).writeto(filename, clobber=True)
-
-        astropy.io.fits.PrimaryHDU(savetype(image), header=self.header).writeto(path, clobber=True)
+        astropy.io.fits.PrimaryHDU(savetype(image), header=self.header).writeto(path, overwrite=True)
         if self.compress[self.camera.cadence] and cancompress:
             os.system('gzip -vf {}'.format(path))
 
@@ -505,7 +502,11 @@ class CCD(object):
 
         focalx, focaly = ccdxy.focalxy.tuple
 
-        normalized, xindex, yindex = self.camera.psf.pixelizedPSF(ccdxy, stellartemp=temp, focus=self.currentfocus)
+        notnecessarilynormalized, xindex, yindex = self.camera.psf.pixelizedPSF(ccdxy, stellartemp=temp, focus=self.currentfocus)
+
+        # watch out! this normalization will cause any non-uniform PRNU to fail
+        normalized = notnecessarilynormalized/np.sum(notnecessarilynormalized)
+
         binned = normalized * self.camera.cadence * self.photons(mag)
         # binned = unnormed*self.camera.cadence*self.photons(mag)/np.sum(unnormed)
 
