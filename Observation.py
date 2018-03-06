@@ -43,6 +43,10 @@ class Observation(object):
         # create the camera
         self.createCamera()
 
+        keys = self.cadencestodo.keys()
+        self.camera.setCadence(keys[0])
+
+
         # create the catalog
         self.createCatalog()
 

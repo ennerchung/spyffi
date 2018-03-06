@@ -895,6 +895,7 @@ class CCD(object):
 
         # temp kludge
         cosmics, stars = None, None
+
         # create a blank image
         self.image = self.zeros()
 
@@ -918,8 +919,8 @@ class CCD(object):
         # add background to the image
         self.addBackgrounds()
 
-        if writesimulated == False:
-            stars = self.image + 0.0
+        # store the image as is
+        self.astrophysicalimage = self.image + 0.0
 
         if writenoiseless:
             # make filename for this image
@@ -936,7 +937,7 @@ class CCD(object):
 
         if skipcosmics == False:
             # add cosmic rays to the image (after noise, because the *sub-Poisson* noise is already modeled with the Fano factor)
-            cosmics = self.addCosmics(write=writecosmics, version=cosmicsversion, diffusion=cosmicsdiffusion,
+            self.cosmicimage = self.addCosmics(write=writecosmics, version=cosmicsversion, diffusion=cosmicsdiffusion,
                                       correctcosmics=correctcosmics)
 
         # add smear from the finite frame transfer time
@@ -971,7 +972,7 @@ class CCD(object):
         self.show()
 
         if writesimulated == False:
-            return self.image, cosmics, stars
+            return self.image, self.cosmicimage, self.astrophysicalimage
 
 
 class Aberrator(object):
